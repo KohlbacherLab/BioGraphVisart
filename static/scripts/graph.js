@@ -79,7 +79,7 @@ function getNodesAndEdges(graphString){
   var prevId = "";
   var pos = 0;
 
-  var regExp = /\>([^)]+)\</; // get symbol name between > <
+  var regExp = /\>(.*)\</; // get symbol name between > <
 
   for (var i = 0; i <= graphString.length - 1; i++) {
     if(graphString[i].includes("attr.type=")){
@@ -857,7 +857,17 @@ function changeLayout(){
 }
 
 // get graph for gene from Thorsten's database
-function getGraphforGene(name){ 
+function getGraphforGene(name){
+  var networkInventory;
+  var reqNetworks = new XMLHttpRequest();
+  reqNetworks.open('GET', 'http://abidocker:48080/sbml4j/networkInventory', false);
+  reqNetworks.setRequestHeader('user', 'user')
+  reqNetworks.onload = function () {
+    networkInventory = JSON.parse(reqNetworks.responseText);
+   }
+  reqNetworks.send(document);
+  console.log(networkInventory)
+
   var listofGenes;
   var reqListofGenes = new XMLHttpRequest();
   reqListofGenes.open('GET', 'http://abidocker:48080/sbml4j/networkInventory/2d25f4b9-8dd5-4bc3-9d04-9af418302244/filterOptions', false);
@@ -915,7 +925,17 @@ function listKEGGPathways(){
         colorschemePaths = [];
 				for(var n in nodes){
 					if(nodes[n]["data"]["symbol"]!="legend"){
-						var	entrezID = nodes[n]["data"]["entrezID"].toString();
+            if(nodes[n]["data"]["entrezID"]){
+              var entrezID = nodes[n]["data"]["entrezID"].toString();
+            }
+            else if(nodes[n]["data"]["entrez"]){
+              var entrezID = nodes[n]["data"]["entrez"].toString();
+            }
+            else{
+              alert("No Entrez ID given.")
+              document.getElementById('loader').style.visibility = "hidden";
+              return
+            }
 						var keggpaths = getPathwaysFromKEGG(entrezID).split('\n');
 						var i = 0;
 						var searchPattern = new RegExp(/^\s* hsa/);
