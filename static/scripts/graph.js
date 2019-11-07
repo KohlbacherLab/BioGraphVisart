@@ -7,10 +7,9 @@ visualize a graph from .graphml-file
 */
 
 function visualize(graphString) {
-   
    //create cytoscape object; not necessary for json
   if(!isJson){
-    if(!noOptn && !clicked && !defaultVal){
+    if(!noOptn && !collapsed && !defaultVal){
       nodeVal = document.getElementById('values').value;
     }
 
@@ -31,7 +30,27 @@ function visualize(graphString) {
     addNodesAndEdges();
 
   }
-  if(!clicked){
+  if(!collapsed){
+    document.getElementById('reverse').setAttribute('style','visibility:hidden');
+    document.getElementById('KEGGpathsButton').style.visibility ="visible";
+    document.getElementById('KEGGpaths').style.visibility ="visible";
+    if(document.getElementById('values')){
+      document.getElementById('values').disabled = false;
+    }
+    if(document.getElementById('nodeShapesAttr')){
+      document.getElementById('nodeShapesAttr').disabled = false;
+    }
+    if(document.getElementById('nodeShapes')){
+      document.getElementById('nodeShapes').disabled = false;
+    }
+  }
+   if(collapsed){
+    document.getElementById('reverse').setAttribute('style','visibility:visible');
+    document.getElementById('KEGGpathsButton').style.visibility ="hidden";
+    document.getElementById('KEGGpaths').style.visibility ="hidden";
+    collapsed = false;
+   }
+  if(!collapsed){
     $('#downloadPDF').removeAttr('disabled');
     $('#downloadPNG').removeAttr('disabled');
     $('#downloadSVG').removeAttr('disabled');
@@ -50,9 +69,6 @@ function visualize(graphString) {
   if(! noDrpShapes && !isJson){
     activateNodeShapeChange();
   }
-  
-  document.getElementById('KEGGpathsButton').style.visibility ="visible";
-  document.getElementById('KEGGpaths').style.visibility ="visible";
 
     // set background layer to hoghlight pathways
   layer = cy.cyCanvas({
@@ -68,6 +84,7 @@ function visualize(graphString) {
     document.getElementById('KEGGpaths').style.visibility ="hidden";
   }
   defaultVal = false;
+  document.getElementById('loader1').style.visibility = "hidden";
 }
 
 //get information of nodes ande edges
@@ -94,18 +111,10 @@ function getNodesAndEdges(graphString){
       nodes.push({data: curNode});
     }
     if(!isEmpty(curNode)){
-      if(graphString[i].includes("symbol\"\>")){  // get symbol of node
-        var symbol = regExp.exec(graphString[i])[1];
-        curNode.symbol = symbol;
-      }
-      if(graphString[i].includes("v_name\"\>")){  // get symbol of node
-        var nodename = regExp.exec(graphString[i])[1];
-        curNode.nodename = nodename;
-      }
       if(graphString[i].includes("\"v_"+nodeVal+"\"\>")){
         var val = regExp.exec(graphString[i])[1]; // if availabe get node value
         if(!isNaN(parseFloat(val))){
-          attrID = graphString[i].split(" ")[7].split("\"")[1];
+          attrID = graphString[i].split("\"")[1];
           currVal = {};
           currVal[nodeVal] = parseFloat(val);
           currVal.attr = attributesTypes[attrID];
@@ -119,13 +128,10 @@ function getNodesAndEdges(graphString){
         }
         curNode[nodeVal] = currVal[nodeVal];
       }
-      if(graphString[i].includes("v_gene_name")){       // get gene names
-        var genename = graphString[i].split("\>")[1].split("\<")[0];
-        curNode.genename = genename;
-      }
-      if(graphString[i].includes("v_entrez")){
-      	var entrezID = graphString[i].split("\>")[1].split("\<")[0];
-      	curNode.entrezID = entrezID;
+      else if(graphString[i].includes("v_") && !graphString[i].includes("v_id")){
+        var attrVal = graphString[i].split("\>")[1].split("\<")[0];
+        var attrName = graphString[i].split("v_")[1].split("\"\>")[0];
+        curNode[attrName] = attrVal;
       }
       
     }
@@ -163,7 +169,8 @@ function getNodesAndEdges(graphString){
       }
     }
   }
-  if(! noOptn){
+  if(!noOptn || (!collapsed && document.getElementById("values"))){
+    noOptn = false;
     var legendNode = {};
     legendNode.id = "l1";
     legendNode.symbol = "legend";
@@ -285,9 +292,6 @@ function addNodesAndEdges(){
     ready: function(){
           },
     elements: nodes.concat(edges),
-  //   layout: {
-  //   name: 'dagre'
-  // },
     style: [
          // style nodes
       {selector: 'node',
@@ -299,7 +303,6 @@ function addNodesAndEdges(){
           'border-color' : 'black',
           'border-style' : 'solid',
           'border-width' : '2',
-          // 'label': 'data(symbol)',
           "text-valign" : "center",
           "text-halign" : "center",
           "font-size" : 10,
@@ -451,38 +454,113 @@ function addNodesAndEdges(){
   if(nodes.every(function(x){return(x.data["symbol"])})){
     for(n=0; n < nodes.length; n++){
       cy.batch(function(){
-      cy.$('node[id =\''  + nodes[n].data.id + '\']').style("label",nodes[n].data.symbol);
+        var labelText = nodes[n].data.symbol;
+        var oldLabelText = nodes[n].data.symbol;
+        // if(getTextWidth(labelText, fontSize +" arial") > 45){
+          while(getTextWidth(labelText, fontSize +" arial") > 49){
+            oldLabelText = oldLabelText.slice(0,-1);
+            labelText = oldLabelText+'...';
+          }
+        // }
+        cy.$('node[id =\''  + nodes[n].data.id + '\']').style("label", labelText);
       });
     }
   }
   else{
     for(n=0; n < nodes.length; n++){
       cy.batch(function(){
-      cy.$('node[id =\''  + nodes[n].data.id + '\']').style("label",nodes[n].data.nodename);
+        var labelText = nodes[n].data.name;
+        var oldLabelText = nodes[n].data.name;
+        // if(getTextWidth(labelText, fontSize +" arial") > 45){
+          while(getTextWidth(labelText, fontSize +" arial") > 49){
+            oldLabelText = oldLabelText.slice(0,-1);
+            labelText = oldLabelText+'...';
+          }
+        // }
+        cy.$('node[id =\''  + nodes[n].data.id + '\']').style("label",labelText);
       });
     }
   }
 
 	// on click collapse all other nodes and expand extra nodes for clicked node
-	cy.on('tap', 'node', function(evt){
-		clickedNode = evt.target;
-		if(!collapsed){
-      var neighboringgraphml = getGraphforGene(evt.target.data().symbol);
+  if(!collapsed){
+  	cy.on('tap', 'node', function(evt){
+  		clickedNode = evt.target;
+      if(evt.target.data().symbol != undefined){
+        var neighboringgraphml = getGraphforGene(evt.target.data().symbol);
+      }
+      else if(evt.target.data().name != undefined){
+        var neighboringgraphml = getGraphforGene(evt.target.data().name);        
+      }
 		  clickedNodesPosition = cy.$(evt.target).position();
       if(neighboringgraphml){
+        if(document.getElementById('values')){
+          document.getElementById('values').disabled = true;
+        }
+        if(document.getElementById('nodeShapesAttr')){
+          document.getElementById('nodeShapesAttr').disabled = true;
+        }
+        if(document.getElementById('nodeShapes')){
+          document.getElementById('nodeShapes').disabled = true;
+        }
         collapsed = true;
+        noOptn = true;
   		  visualize(neighboringgraphml.split("\n"));
-        cy.elements('node[nodename = "'+ evt.target.data().symbol+'"] ').style('border-width', 5).style('font-weight', 'bold')
-        // cy.elements('node[nodename = "'+ evt.target.data().symbol+'"] ').neighborhood().style('background-color', 'green')
-        // console.log(cy.elements('node[nodename = "'+ evt.target.data().symbol+'"] ').neighborhood())
+        cy.elements('node[name = "'+ evt.target.data().symbol+'"] ').style('border-width', 5).style('font-weight', 'bold')
+        cy.elements('node[midrug_id]').style('background-image', 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gR2VuZXJhdG9yOiBBZG9iZSBJbGx1c3RyYXRvciAxNS4wLjIsIFNWRyBFeHBvcnQgUGx1Zy1JbiAuIFNWRyBWZXJzaW9uOiA2LjAwIEJ1aWxkIDApICAtLT4KCjxzdmcKICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICB4bWxuczpjYz0iaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcvbnMjIgogICB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgeG1sbnM6c29kaXBvZGk9Imh0dHA6Ly9zb2RpcG9kaS5zb3VyY2Vmb3JnZS5uZXQvRFREL3NvZGlwb2RpLTAuZHRkIgogICB4bWxuczppbmtzY2FwZT0iaHR0cDovL3d3dy5pbmtzY2FwZS5vcmcvbmFtZXNwYWNlcy9pbmtzY2FwZSIKICAgdmVyc2lvbj0iMS4xIgogICBpZD0iTGF5ZXJfMSIKICAgeD0iMHB4IgogICB5PSIwcHgiCiAgIHdpZHRoPSIyNDkuMjM1cHgiCiAgIGhlaWdodD0iMjQ5LjIzNnB4IgogICB2aWV3Qm94PSIwIDAgMjQ5LjIzNSAyNDkuMjM2IgogICBlbmFibGUtYmFja2dyb3VuZD0ibmV3IDAgMCAyNDkuMjM1IDI0OS4yMzYiCiAgIHhtbDpzcGFjZT0icHJlc2VydmUiCiAgIHNvZGlwb2RpOmRvY25hbWU9InBpbGxfaWNvbl9yZWRfMjU2LnN2ZyIKICAgaW5rc2NhcGU6dmVyc2lvbj0iMC45Mi4yIDVjM2U4MGQsIDIwMTctMDgtMDYiPjxtZXRhZGF0YQogICAgIGlkPSJtZXRhZGF0YTEzIj48cmRmOlJERj48Y2M6V29yawogICAgICAgICByZGY6YWJvdXQ9IiI+PGRjOmZvcm1hdD5pbWFnZS9zdmcreG1sPC9kYzpmb3JtYXQ+PGRjOnR5cGUKICAgICAgICAgICByZGY6cmVzb3VyY2U9Imh0dHA6Ly9wdXJsLm9yZy9kYy9kY21pdHlwZS9TdGlsbEltYWdlIiAvPjwvY2M6V29yaz48L3JkZjpSREY+PC9tZXRhZGF0YT48ZGVmcwogICAgIGlkPSJkZWZzMTEiIC8+PHNvZGlwb2RpOm5hbWVkdmlldwogICAgIHBhZ2Vjb2xvcj0iI2ZmZmZmZiIKICAgICBib3JkZXJjb2xvcj0iIzY2NjY2NiIKICAgICBib3JkZXJvcGFjaXR5PSIxIgogICAgIG9iamVjdHRvbGVyYW5jZT0iMTAiCiAgICAgZ3JpZHRvbGVyYW5jZT0iMTAiCiAgICAgZ3VpZGV0b2xlcmFuY2U9IjEwIgogICAgIGlua3NjYXBlOnBhZ2VvcGFjaXR5PSIwIgogICAgIGlua3NjYXBlOnBhZ2VzaGFkb3c9IjIiCiAgICAgaW5rc2NhcGU6d2luZG93LXdpZHRoPSI3NzgiCiAgICAgaW5rc2NhcGU6d2luZG93LWhlaWdodD0iNDgwIgogICAgIGlkPSJuYW1lZHZpZXc5IgogICAgIHNob3dncmlkPSJmYWxzZSIKICAgICBpbmtzY2FwZTp6b29tPSIwLjk0Njg5Mzc0IgogICAgIGlua3NjYXBlOmN4PSIxMjQuNjE3NSIKICAgICBpbmtzY2FwZTpjeT0iMTI0LjYxOCIKICAgICBpbmtzY2FwZTp3aW5kb3cteD0iMjIzIgogICAgIGlua3NjYXBlOndpbmRvdy15PSI3NCIKICAgICBpbmtzY2FwZTp3aW5kb3ctbWF4aW1pemVkPSIwIgogICAgIGlua3NjYXBlOmN1cnJlbnQtbGF5ZXI9IkxheWVyXzEiIC8+PGcKICAgICBpZD0iZzYiCiAgICAgc3R5bGU9ImZpbGw6IzAwMDAwMDtmaWxsLW9wYWNpdHk6MSI+PHBhdGgKICAgICAgIGZpbGw9IiNGQkZCRkIiCiAgICAgICBkPSJNMTk1LjUxMiw1NC4yOTRjLTguMTQyLTguMTQzLTE4LjgxNS0xMi4yMjYtMjkuNDk0LTEyLjIyNmMtMTAuNjc0LDAtMjEuMzUxLDQuMDgzLTI5LjQ3LDEyLjIyNiAgIEw5NC4zOTYsOTYuNDM4bDAsMGwtNDIuMTQyLDQyLjEzNWMtMTYuMjg3LDE2LjI2Ny0xNi4yODcsNDIuNjgsMC4wMSw1OC45NjVjMTYuMjY2LDE2LjI3OCw0Mi42ODIsMTYuMjc4LDU4Ljk1NiwwbDMzLjE2My0zMy4xNSAgIGw1MS4xMTktNTEuMTE5QzIxMS43NzYsOTYuOTc0LDIxMS43NzYsNzAuNTU5LDE5NS41MTIsNTQuMjk0eiBNMTg2LjUzMiwxMDQuMjgzbC00Mi4xNDgsNDIuMTRMMTAzLjM2NSwxMDUuNGw0Mi4xNDItNDIuMTQgICBjNS40NzMtNS40NzQsMTIuNzY1LTguNTA3LDIwLjQ5Mi04LjUwN2M3Ljc1MSwwLDE1LjA0MiwzLjAzMywyMC41MTgsOC41MDdDMTk3LjgzOCw3NC41NjQsMTk3LjgzOCw5Mi45ODMsMTg2LjUzMiwxMDQuMjgzeiIKICAgICAgIGlkPSJwYXRoNCIKICAgICAgIHN0eWxlPSJmaWxsOiMwMDAwMDA7ZmlsbC1vcGFjaXR5OjEiIC8+PC9nPjwvc3ZnPg==')
+        .style('background-width', '45%')
+        .style('background-height', '45%')
+        .style('background-position-y', '100%')
       }
-		}
-		else if(collapsed){
-		 	collapsed = false;
-		 	visualize(graphString);
-		 }
-		
-	}); // on tap
+  	}); // on tap
+  }
+  else if(collapsed){
+    cy.on('tap', 'node', function(evt){
+      var clickedNode = evt.target.data();
+      if(clickedNode.midrug_id != undefined){
+        var info = "<div align='left' id='information'><table><tr>"
+        Object.keys(clickedNode).forEach(function(key) {
+            if(key == "id"){
+              return;
+            }
+            if(key == "drugbank_id"){
+              info+= "<td><b>"+key.charAt(0).toUpperCase() + key.slice(1).split("_").join(" ")+"</b></td><td><a href='https://www.drugbank.ca/drugs/"+clickedNode[key]+"'target='_blank'>"+clickedNode[key]+"</a></td></tr>"
+            }
+            else{
+              info += "<td><b>"+key.charAt(0).toUpperCase() + key.slice(1).split("_").join(" ")+"</b></td><td>"+clickedNode[key]+"</td></tr>"
+            }
+        });
+        info += "</table>"
+        var newWindow = window.open("");
+        var doc = newWindow.document;
+        doc.open("text/html", "replace");
+        doc.write("<HTML><HEAD><TITLE>"+clickedNode.name+
+          "</TITLE><link rel='stylesheet' type='text/css' href='http://127.0.0.1:3000/static/css/subgraphCss.css'></HEAD>"+
+          "<BODY><H1>"+clickedNode.name+
+          "</H1>"+info+"</BODY></HTML>");
+        doc.close();
+      }});
+    cy.elements('node').qtip({       // show node attibute value by mouseover
+        show: {   
+          event: 'mouseover', 
+          solo: true,
+        },
+        content: {text : function(){
+          return this.data('name')
+        }},
+        position: {
+          my: 'top center',
+          at: 'bottom center'
+        },
+        style: {
+          classes: 'qtip-bootstrap',
+          tip: {
+            width: 8,
+            height: 8
+          }
+        },
+        })
+  }
   cy.nodes().noOverlap({ padding: 5 });
   if(! noOptn){
   // calculate label position for legend and style legend
@@ -542,17 +620,71 @@ function showMetaInfo(){
         },
         content: {text : function(){
           if(!isNaN(parseFloat(this.data()[nodeVal]))&&this.data('genename')){
-            return '<b>'+nodeVal +'</b>: ' + parseFloat(this.data()[nodeVal]).toFixed(2) +
-            '<br>' + '<b>gene name</b>: ' + this.data('genename'); } //numbers
+            if(this.data('symbol') != undefined){
+              return '<b>'+ this.data('symbol') +'</b><br>' + 
+              '<b>'+nodeVal +'</b>: ' + parseFloat(this.data()[nodeVal]).toFixed(2) +
+              '<br>' + '<b>gene name</b>: ' + this.data('genename')}
+            else if(this.data('name') != undefined){
+              return '<b>'+ this.data('name')+'</b><br>' +
+              '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal] +
+              '<b>'+nodeVal +'</b>: ' + parseFloat(this.data()[nodeVal]).toFixed(2) +
+              '<br>' + '<b>gene name</b>: ' + this.data('genename')}
+            } //numbers
           else if(!isNaN(parseFloat(this.data()[nodeVal]))&& !this.data('genename')){
-            return '<b>'+nodeVal +'</b>: ' + parseFloat(this.data()[nodeVal]).toFixed(2);
+            if(this.data('symbol') != undefined){
+              return '<b>'+ this.data('symbol') +'</b><br>' + 
+              '<b>'+nodeVal +'</b>: ' + parseFloat(this.data()[nodeVal]).toFixed(2);} //numbers
+            else if(this.data('name') != undefined){
+              return '<b>'+ this.data('name')+'</b><br>' + 
+              '<b>'+nodeVal +'</b>: ' + parseFloat(this.data()[nodeVal]).toFixed(2);
+            }
           }
           else if(this.data('genename')){
-            return '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal] +
-            '<br>' + '<b>gene name</b>: ' + this.data('genename');          //bools
-          }
+            if(this.data('symbol') != undefined){
+              return '<b>'+ this.data('symbol') +'</b><br>' + 
+              '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal] +
+              '<br>' + '<b>gene name</b>: ' + this.data('genename');          //bools
+            }
+            else if(this.data('name') != undefined){
+              return '<b>'+ this.data('name')+'</b><br>' +
+              '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal] +
+              '<br>' + '<b>gene name</b>: ' + this.data('genename'); 
+          }}
           else{
-            return '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal];
+            if(this.data('symbol') != undefined){
+              return '<b>'+ this.data('symbol') +'</b><br>' + 
+              '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal];
+            }
+             else if(this.data('name') != undefined){
+              return '<b>'+ this.data('name')+'</b><br>' +
+              '<b>'+nodeVal +'</b>: '+ this.data()[nodeVal];
+          }
+        }
+        }},
+        position: {
+          my: 'top center',
+          at: 'bottom center'
+        },
+        style: {
+          classes: 'qtip-bootstrap',
+          tip: {
+            width: 8,
+            height: 8
+          }
+        },
+        });
+  }
+  else if(!isJson && noOptn){
+    cy.elements('node').qtip({       // show node attibute value by mouseover
+        show: {   
+          event: 'mouseover', 
+          solo: true,
+        },
+        content: {text : function(){
+          if(this.data('symbol')){
+            return '<b>'+ this.data('symbol') +'</b>'; } //numbers
+          else if(this.data('name')){
+            return '<b>'+ this.data('name')+'</b>';
           }
         }},
         position: {
@@ -864,16 +996,15 @@ function getGraphforGene(name){
   var networkInventory;
   var reqNetworks = new XMLHttpRequest();
   reqNetworks.open('GET', 'http://abidocker:48080/sbml4j/networkInventory', false);
-  reqNetworks.setRequestHeader('user', 'user')
+  reqNetworks.setRequestHeader('user', 'openMTB')
   reqNetworks.onload = function () {
     networkInventory = JSON.parse(reqNetworks.responseText);
-   }
+  }
   reqNetworks.send(document);
-  console.log(networkInventory)
 
   var listofGenes;
   var reqListofGenes = new XMLHttpRequest();
-  reqListofGenes.open('GET', 'http://abidocker:48080/sbml4j/networkInventory/2d25f4b9-8dd5-4bc3-9d04-9af418302244/filterOptions', false);
+  reqListofGenes.open('GET', 'http://abidocker:48080/sbml4j/networkInventory/16c75fe8-7185-46e0-9a02-26dcc925488a/filterOptions', false);
   reqListofGenes.setRequestHeader('user', 'user')
   reqListofGenes.onload = function () {
     listofGenes = JSON.parse(reqListofGenes.responseText).nodeSymbols;
@@ -882,7 +1013,7 @@ function getGraphforGene(name){
   if(listofGenes.includes(name)){
     var responsetxt;
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'http://abidocker:48080/sbml4j/context?baseNetworkUUID=2d25f4b9-8dd5-4bc3-9d04-9af418302244&gene='+name+'&minSize=1&maxSize=1&format=graphml', false);
+    xhr.open('GET', 'http://abidocker:48080/sbml4j/context?baseNetworkUUID=16c75fe8-7185-46e0-9a02-26dcc925488a&gene='+name+'&minSize=1&maxSize=1&format=graphml', false);
     xhr.setRequestHeader('user', 'user')
 
     xhr.onload = function () {
@@ -895,123 +1026,131 @@ function getGraphforGene(name){
 }
 
 // get pathways of selected gene from kegg using entrez id
-function getPathwaysFromKEGG(name){ 
-	var xhr = new XMLHttpRequest();
-	xhr.open('GET', "http://rest.kegg.jp/get/hsa:" + name, false);
-	
-	xhr.onload = function () {
-		paths = xhr.responseText;
-	 }
-
-	xhr.send(document);
-	return paths;
+async function getPathwaysFromKEGG(name) {
+    return new Promise(function (resolve, reject) {
+        let xhr = new XMLHttpRequest();
+        xhr.open('GET', "https://www.kegg.jp/entry/hsa:" + name);
+        xhr.onload = function () {
+            if (this.status >= 200 && this.status < 300) {
+                resolve(xhr.response);
+            } else {
+                reject({
+                    status: this.status,
+                    statusText: xhr.statusText
+                });
+            }
+        };
+        xhr.onerror = function () {
+            reject({
+                status: this.status,
+                statusText: xhr.statusText
+            });
+        };
+        xhr.send();
+    });
 }
 
 /*
 	generate a checkbox menu for the 10 most common pathways of all genes in the graph
 */
-function listKEGGPathways(){
+async function listKEGGPathways(){
   //swap button "Hide"/"show"
-	if(document.getElementById('keggpathways').firstChild.data == "Show KEGG Pathways"){
-		document.getElementById('keggpathways').firstChild.data  = "Hide KEGG Pathways";
+  if(document.getElementById('keggpathways').firstChild.data == "Show KEGG Pathways"){
+    document.getElementById('keggpathways').firstChild.data  = "Hide KEGG Pathways";
 
-		if(document.getElementById('KEGGpaths').style.visibility == "hidden"){
-			document.getElementById('KEGGpaths').style.visibility="visible";
-		}
-    //get pathways from KEGG, show loader while doing so
-		else{
+    if(document.getElementById('KEGGpaths').style.visibility == "hidden"){
       document.getElementById('KEGGpaths').style.visibility="visible";
-			document.getElementById('loader').style.visibility = "visible";
-			setTimeout(function(){
-				var pathsCount = [];
-        allPaths = [];
-        colorschemePaths = [];
-				for(var n in nodes){
-					if(nodes[n]["data"]["symbol"]!="legend"){
-            if(nodes[n]["data"]["entrezID"]){
-              var entrezID = nodes[n]["data"]["entrezID"].toString();
-            }
-            else if(nodes[n]["data"]["entrez"]){
-              var entrezID = nodes[n]["data"]["entrez"].toString();
-            }
+    }
+    //get pathways from KEGG, show loader while doing so
+    else{
+      document.getElementById('KEGGpaths').style.visibility="visible";
+      document.getElementById('loader').style.visibility = "visible";
+      var pathsCount = [];
+      allPaths = [];
+      colorschemePaths = [];
+      for(var n of nodes){
+        if(n["data"]["symbol"]!="legend"){
+          if(n["data"]["entrezID"] != undefined){
+            var entrezID = n["data"]["entrezID"].toString();
+          }
+          else if(n["data"]["entrez"] != undefined){
+            var entrezID = n["data"]["entrez"].toString();            
+          }
+          else{
+            continue;
+          }
+          let keggpaths = await getPathwaysFromKEGG(entrezID);
+          keggpaths = keggpaths.split("\n")
+          var line = 0;
+          while(line < keggpaths.length){
+            if(keggpaths[line].includes("<nobr>Pathway</nobr>")){
+              line++;
+              var splitarray =keggpaths[line].split("</td>")
+              for(var i = 1; i < splitarray.length-2; i=i+2){
+                let hsa = "hsa"+splitarray[i-1].split(">hsa")[1].split("</a>")[0]
+                let p = splitarray[i].split("<td>")[1]
+                p = hsa+" "+p;
+                if(p != undefined){
+                  if(typeof allPaths[p] == 'undefined'){
+                    allPaths[p]=[];
+                  }
+                  allPaths[p].push(entrezID);
+                  if(isNaN(pathsCount[p])){
+                    pathsCount[p]=1; 
+                  }
+                  else{
+                    pathsCount[p]=pathsCount[p]+1;
+                  }
+                }
+              }
+              break;
+            } 
             else{
-              alert("No Entrez ID given.")
-              document.getElementById('loader').style.visibility = "hidden";
-              return
+              line++;
             }
-						var keggpaths = getPathwaysFromKEGG(entrezID).split('\n');
-						var i = 0;
-						var searchPattern = new RegExp(/^\s* hsa/);
+          }
+        }
+      }
+          // only get top 5 of pathways (most genes in)
+      var props = Object.keys(pathsCount).map(function(key) {
+        return { key: key, value: this[key] };}, pathsCount);
+      props = props.sort(function(p1, p2) { return p2.value - p1.value; });
+      var topFive = props.slice(0, 5);
+      if(topFive.length == 0){
+        alert("No entrezIDs given.")
+        document.getElementById('keggpathways').style.visibility = "hidden";
+        document.getElementById('loader').style.visibility = "hidden";
+        return;
+      }
+          //show table of pathways
+      var tbody = document.getElementById("KEGGpaths");
+      var htmlString ="<form> <h3>KEGG Pathways:</h3><br>";
+      var colors = ["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854"]
 
-						while(i <= keggpaths.length - 1){
-							if(keggpaths[i].startsWith("PATHWAY")){
-								let p = keggpaths[i].split("PATHWAY")[1].trim()
-								if(typeof allPaths[p] == 'undefined'){
-									allPaths[p]=[];
-								}
-								allPaths[p].push(entrezID);
-								if(isNaN(pathsCount[p])){
-									pathsCount[p]=1; 
-								}
-								else{
-									pathsCount[p]=pathsCount[p]+1;
-								}
-							}
-							else if(searchPattern.test(keggpaths[i])){
-								let p = keggpaths[i].trim();
-								if(typeof allPaths[p] == 'undefined'){
-									allPaths[p]=[];
-								}
-								allPaths[p].push(entrezID);
-								if(isNaN(pathsCount[p])){
-									pathsCount[p]=1; 
-								}
-								else{
-									pathsCount[p]=pathsCount[p]+1;
-								}
-							}
-							else if(keggpaths[i].startsWith("MODULE")){
-								break;
-							}
-							i++;
-					    }
-					}
-				}
-        // only get top 5 of pathways (most genes in)
-				var props = Object.keys(pathsCount).map(function(key) {
-				  return { key: key, value: this[key] };}, pathsCount);
-				props = props.sort(function(p1, p2) { return p2.value - p1.value; });
-				var topFive = props.slice(0, 5);
-
-        //show table of pathways
-				var tbody = document.getElementById("KEGGpaths");
-				var htmlString ="<form> <h3>KEGG Pathways:</h3><br>";
-				var colors = ["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854"]
-
-				for (var i = 0; i < topFive.length; i++) {
-					colorschemePaths[topFive[i].key] = colors[i];
-					var tr = "<b style='color:"+colors[i]+"'><label><input type='checkbox' value='"+topFive[i].key+"' onclick='highlightKEGGpaths()''>";
-				    tr += topFive[i].key + " </label><br><br>";
-				    htmlString += tr;
-				}
-				htmlString +="</form>"
-				tbody.innerHTML = htmlString;
-				document.getElementById('loader').style.visibility = "hidden";
-				},10);
-		}
-	}
+      for (var i = 0; i < topFive.length; i++) {
+        colorschemePaths[topFive[i].key] = colors[i];
+        var tr = "<b style='color:"+colors[i]+"'><label><input type='checkbox' value='"+topFive[i].key+"' onclick='highlightKEGGpaths()''>";
+          tr += topFive[i].key + " </label><br><br>";
+          htmlString += tr;
+      }
+      htmlString +="</form>"
+      tbody.innerHTML = htmlString;
+      document.getElementById('loader').style.visibility = "hidden";
+    }
+  }
   //Hide table, switch button to show
-	else {
-		document.getElementById('keggpathways').firstChild.data  = "Show KEGG Pathways";
-		document.getElementById('KEGGpaths').style.visibility = "hidden";
-		document.getElementById('loader').style.visibility = "hidden";
-		$('input:checkbox').prop('checked', false);
+  else {
+    document.getElementById('keggpathways').firstChild.data  = "Show KEGG Pathways";
+    document.getElementById('KEGGpaths').style.visibility = "hidden";
+    document.getElementById('loader').style.visibility = "hidden";
+    $('input:checkbox').prop('checked', false);
     layer.resetTransform(ctx);
     ctx.clearRect(0,0,canvas.width, canvas.height);          
     layer.setTransform(ctx);
     ctx.save();
-	}
+  }
 }
+
 
 //calculate distance between two nodes
 Math.getDistance = function( x1, y1, x2, y2 ) {
@@ -1186,10 +1325,15 @@ function drawPathwayRectangles(){
           if(grouped_nodes.size > 1){
             for(let n of grouped_nodes){
               var position = cy.$("node[entrezID ='"+n+"']").position();
-              // centroid_x=centroid_x+position['x'];
-              // centroid_y=centroid_y+position['y'];
+              if(position == undefined){
+                position = cy.$("node[entrez ='"+n+"']").position();
+              }
               for(let m of grouped_nodes){
-                let pos_m = cy.$("node[entrezID ='"+m+"']").position()
+                var pos_m = cy.$("node[entrezID ='"+m+"']").position()
+                if(pos_m  == undefined){
+                  pos_m = cy.$("node[entrez ='"+m+"']").position()                 
+                }
+
                 let dist_x = Math.abs(position['x'] -  pos_m['x']);
                 if(dist_x >= max_dist_x){
                   max_dist_x = dist_x
@@ -1212,7 +1356,12 @@ function drawPathwayRectangles(){
                 }
               }
             }
-            var renderedWidth = cy.$("node[entrezID ='"+[...grouped_nodes][0]+"']").width();
+            if(cy.$("node[entrezID ='"+[...grouped_nodes][0]+"']").length != 0){
+              var renderedWidth = cy.$("node[entrezID ='"+[...grouped_nodes][0]+"']").width();              
+            }
+            else{
+              var renderedWidth = cy.$("node[entrez ='"+[...grouped_nodes][0]+"']").width();              
+            }
             max_dist_x = (max_dist_x + renderedWidth);
             max_dist_y = (max_dist_y + renderedWidth);
 

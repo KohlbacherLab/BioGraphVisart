@@ -74,10 +74,11 @@
 
 	<div id="downloadPart" style="visibility: hidden">
 		<input name="outputFile" type="text" maxlength="512" id="outputName" value="Download File name"/>
-		<button  class= 'butn' id="downloadPDF" onClick=downloadPDF() disabled="disabled" id="downloadPDF">.pdf</button>
+		<button  class= 'butn' id="downloadPDF" onclick="downloadPDF()" disabled="disabled">.pdf</button>
 		<button class= 'butn' id="downloadPNG" onclick="downloadPNG()" disabled="disabled">.png</button>
 		<button class= 'butn' id="downloadSVG" onclick="downloadSVG()" disabled="disabled">.svg</button>
 		<button class= 'butn' id="downloadJSON" onclick="downloadJSON()" disabled="disabled">.json</button>
+		<button class="butn" id="reverse" onclick="{collapsed = false; visualize(graphString)}" style="visibility: hidden">Main graph</button>
 	</div>
 	<!--<button onclick=" window.print()">print</button>-->
 	<p></p>
@@ -2369,7 +2370,7 @@ nPgo8L3N2Zz4K'>
 		<button class= 'butn' id="resetLayout" onclick="changeLayout()">Reset layout</button>
 		<div id="legendNodes"></div>
 	</div>
-	
+	<div class="loader" id="loader1" style="visibility: hidden"></div>
 	<div align="left" id="cy"></div>
 	<div align="left" id="KEGGpathsButton" style="visibility: hidden">
 		<button class="butn" id="keggpathways" onclick="listKEGGPathways()">Show KEGG Pathways</button></p>

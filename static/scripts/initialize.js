@@ -1,8 +1,8 @@
 var nodes, edges, path, tracer, nodeVal, outputName, nodeAttributes, 
  graphString, oldMin, oldMax, nodeShapeAttr, shapeNode, ycoord;
  // no attributes for node coloring/shape
-  var noOptn = true;
-  var noDrpShapes = true;
+var noOptn = true;
+var noDrpShapes = true;
 var firstTime = true;
 var loadGraphCount = 0;
 var legendDrawn = false;
@@ -16,7 +16,6 @@ var getDrpDwnFiles = true;
 var isJson = false;
 var collapsed = false;
 var expandGraphs = [];
-var clicked = false;
 var clickedNode;
 var clickedNodesPosition;
 var colorschemePaths;
@@ -27,7 +26,13 @@ var ctx;
 var defaultVal = false;
 
 function isJsonFile(){
+  document.getElementById('loader1').style.visibility = "visible";
   var file = document.getElementById('fileName').files[0];
+  if(file == undefined){
+    alert("No file given.")
+    document.getElementById('loader1').style.visibility = "hidden";
+    return;
+  }
   if(file["name"].endsWith("json")){
     readJson(file);
   }
@@ -46,7 +51,6 @@ remove old buttons
 function cleanSelections(){
     // if it is not the first graph read, delete all selectable options
   usedShapeAttributes = [];
-  var myNode = document.getElementById("configPart");
   document.getElementById('KEGGpaths').innerHTML = "";
   document.getElementById('keggpathways').firstChild.data = "Show KEGG Pathways";
   document.getElementById('KEGGpaths').style.visibility = "hidden";
@@ -69,6 +73,10 @@ function cleanSelections(){
     {domNodeShapes.parentNode.removeChild(domNodeShapes);}
   if(domLayout)
     {domLayout.parentNode.removeChild(domLayout);}
+  noOptn = true;
+  noDrpShapes = true;
+  collapsed = false;
+  nodeVal = undefined;
 }
 /* 
 read from json - file and initialize cy-object
@@ -180,7 +188,7 @@ function readJson(file) {
       else{
         for(n=0; n < cy.nodes().length; n++){
           cy.batch(function(){
-          cy.$('node[id =\''  + cy.nodes()[n]["_private"].data.id + '\']').style("label",cy.nodes()[n]["_private"].data.nodename);
+          cy.$('node[id =\''  + cy.nodes()[n]["_private"].data.id + '\']').style("label",cy.nodes()[n]["_private"].data.name);
           });
         }
       }
@@ -285,7 +293,6 @@ function readFile(file) {
 
 
 function loadFile() {
-
   // put node atttributes into dropdown select object
   var drp = document.createElement("select");
   drp.id = "values";
@@ -296,7 +303,7 @@ function loadFile() {
   var sele = document.createElement("OPTION");
   sele.text = "Select Coloring Attribute";
   drp.add(sele);
-  drp.onchange = function(){noOptn = false;visualize(graphString)};
+  drp.onchange = function(){visualize(graphString)};
 
 
   // layout dropdown
@@ -357,7 +364,7 @@ function loadFile() {
     drpShape.add(optnShape);
   });
 
-  if(! isJson){
+  if(!isJson){
     // get attributes for coloring -> double/boolean and shape -> boolean
     for (var i = 0; i <= graphString.length - 1; i++) {
       if(graphString[i].includes("for=\"node\"") && 
@@ -388,14 +395,14 @@ function loadFile() {
       nodeVal = drp.options[1].value;
       document.getElementById('values').value = nodeVal;
       defaultVal = true;
+        visualize(graphString)
     }
-    visualize(graphString);
-  }
-  // if no attributes found for coloring/shape, remove dropdown menus and visualize
+  } 
   if(noOptn && noDrpShapes){
     drp.parentNode.removeChild(drp);
     drpShapes.parentNode.removeChild(drpShapes);
     drpShape.parentNode.removeChild(drpShape);
+    defaultVal = false;
     visualize(graphString);
   }   
   else if(noDrpShapes){
