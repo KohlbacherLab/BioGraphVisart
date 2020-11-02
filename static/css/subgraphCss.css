@@ -193,7 +193,7 @@ input:hover{
 }
 
 #cy {
-      width: 60%;
+      width: 65%;
       position: absolute;
       top: 160px;
       left: 190px;
@@ -229,17 +229,17 @@ input:hover{
 .KEGGpathsButton{
   position: absolute;
   top: 160px;
-  left:85%;
+  margin-left:84%;
 }
 #KEGGpaths{
   position: absolute;
   top: 210px;
-  left:86%;
+  margin-left:85%;
 }
 #keggpathways{
   position: absolute;
   top: 180px;
-  left:86%;
+  margin-left:85%;
 }
 #keggpathwaysMerge{
   position: absolute;
@@ -395,15 +395,13 @@ input:hover{
     margin: 0% 10% 5% 0%;
 }
  #merged_graph {
-      width: 65%;
-      /*height: 75%;*/
+  width: 65%;
       position: absolute;
-      top: 200px;
+      top: 150px;
       left: 280px;
-      bottom: 90px;
-      max-height : 80%;
+      bottom: 70px;
       background-color:none;
-      flex: 1;
+      z-index: 2;
 }
 
 #legend_heatmap {
